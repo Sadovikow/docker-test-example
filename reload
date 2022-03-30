@@ -1,0 +1,6 @@
+docker-compose -p app --env-file ./.env up -d
+docker exec -it nginx nginx -s reload
+
+chown -R www-data:www-data /opt/app/data/www
+find /opt/app/data/www -type d -exec chmod 775 {} \;
+find /opt/app/data/www -type f -exec chmod 664 {} \;
