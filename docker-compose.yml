@@ -1,0 +1,149 @@
+version: "3.9"
+
+networks:
+  local:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+services:
+
+  memcached:
+    container_name: "memcached"
+    image: "memcached:${MEMCACHED_VERSION}"
+    restart: always
+    command: ["-m", "${MEMCACHED_SIZE}m"]
+    command: ["-p", "${MEMCACHED_PORT}"]
+    networks:
+      - local
+    environment:
+       - TZ
+
+  nginx:
+    container_name: "nginx"
+    image: "nginx:${NGINX_VERSION}"
+    restart: always
+    command: ["nginx", "-g", "daemon off;"]
+    volumes:
+      - "./conf/nginx/conf.d:/etc/nginx/conf.d"
+      - "./conf/nginx/conf:/etc/nginx/conf"
+      - "./conf/nginx/nginx.conf:/etc/nginx/nginx.conf"
+      - "./logs/nginx:/var/log/nginx"
+      - "./ssl:/etc/ssl/"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - local
+    build:
+      args:
+        - NGINX_VERSION
+      context: ./
+      dockerfile: ./builds/nginx
+    environment:
+      - TZ
+      - APACHE_ROOT
+      - COMPOSE_DOCKER_CLI_BUILD
+      - SSL_PATH
+    depends_on:
+      - db
+      - memcached
+    networks:
+      local:
+        ipv4_address: 172.20.0.254
+
+  db:
+    container_name: "db"
+    image: "mariadb:${MARIADB_VERSION}"
+    restart: always
+    command: mysqld --sql_mode="" --character-set-server=utf8 --collation-server=utf8_general_ci
+    volumes:
+      - "./data/db:/var/lib/mysql"
+      - "./conf/db:/etc/mysql/conf.d"
+    networks:
+      - local
+    hostname: db
+    environment:
+      TZ: "${TZ}"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+
+
+  phpmyadmin:
+    container_name: "phpmyadmin"
+    image: "phpmyadmin:${PMA_VERSION}"
+    restart: always
+    networks:
+      - local
+    hostname: phpmyadmin
+    environment:
+      TZ: "${TZ}"
+      PMA_HOST: "${DB_HOST}"
+      PMA_ARBITRARY: "0"
+    depends_on:
+      - db
+
+
+
+
+  official:
+    container_name: "official"
+    image: "httpd:${HTTPD_VERSION}"
+    restart: always
+    volumes:
+      - "./data/www/official:${APACHE_ROOT}"
+      - "./conf/httpd/${PHP_VERSION}:/etc/apache2"
+      - "./conf/php/${PHP_VERSION}:/usr/local/etc/php"
+      - "./logs/official:${APACHE_LOG_DIR}"
+    networks:
+      - local
+    hostname: official
+    build:
+      args:
+        - PHP_VERSION
+      context: ./
+      dockerfile: ./builds/httpd
+    environment:
+      TZ: "${TZ}"
+      DB_HOST: "${DB_HOST}"
+      DB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      DB_NAME: "${DB_NAME}"
+      DB_USER: "${DB_USER}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      MEMCACHED_PORT: "${MEMCACHED_PORT}"
+      APACHE_ROOT: "${APACHE_ROOT}"
+      APACHE_LOG_DIR: "${APACHE_LOG_DIR}"
+    depends_on:
+      - db
+      - memcached
+
+
+  cosmos:
+    container_name: "cosmos"
+    image: "httpd:${HTTPD_VERSION}"
+    restart: always
+    volumes:
+      - "./data/www/cosmos:${APACHE_ROOT}"
+      - "./conf/httpd/${PHP_VERSION}:/etc/apache2"
+      - "./conf/php/${PHP_VERSION}:/usr/local/etc/php"
+      - "./logs/cosmos:${APACHE_LOG_DIR}"
+    networks:
+      - local
+    hostname: cosmos
+    build:
+      args:
+        - PHP_VERSION
+      context: ./
+      dockerfile: ./builds/httpd
+    environment:
+      TZ: "${TZ}"
+      DB_HOST: "${DB_HOST}"
+      DB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      DB_NAME: "${DB_NAME}"
+      DB_USER: "${DB_USER}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      MEMCACHED_PORT: "${MEMCACHED_PORT}"
+      APACHE_ROOT: "${APACHE_ROOT}"
+      APACHE_LOG_DIR: "${APACHE_LOG_DIR}"
+    depends_on:
+      - db
+      - memcached
